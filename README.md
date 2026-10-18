@@ -1,36 +1,105 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# IdeaProof AI
+
+**Academic Research Idea Validation & Planning Tool**
+
+IdeaProof AI is a professional academic research validation platform inspired by the design restraint and usability of Linear and Notion. It enables researchers, graduate students, and principal investigators to deconstruct proposed research questions, synthesize directional hypotheses, evaluate potential novelty gaps, blueprint experimental methodologies, and cross-reference proposals against 250M+ verified peer-reviewed papers.
+
+---
+
+## Key Features
+
+1. **Structured Research Analysis via NVIDIA Nemotron**
+   - Integrates with **Nebius Token Factory** to run server-side inference on NVIDIA's high-reasoning Nemotron models (`nvidia/nemotron-3-super-120b-a12b`, `nvidia/Nemotron-3-Ultra-550b-a55b`, and `nvidia/Llama-3.1-Nemotron-70B-Instruct-HF`).
+   - Generates publication-grade research titles, formal null and alternative hypotheses ($H_0, H_1$), multi-phase execution roadmaps, benchmark baselines, dataset specifications, evaluation metrics, and risk assessments.
+   - Distinct academic rigor settings tailored for **Undergraduate**, **Master's**, and **PhD** scopes.
+
+2. **Verified Academic Literature via OpenAlex**
+   - Directly queries the OpenAlex REST API for genuine, peer-reviewed publications.
+   - Displays authentic metadata: real DOIs, verified publication years, exact author lists, publication venues, citation counts, and open-access PDF links.
+   - **Zero Hallucination Guarantee:** AI hypothesis generation is strictly separated from verified empirical literature. The platform never fabricates DOIs, citations, or paper titles.
+
+3. **Academic Design & Export Capabilities**
+   - Built with a warm off-white canvas (`#FAFAF8`), dark charcoal typography, restrained navy accents, and subtle neutral borders.
+   - **Markdown Export:** Download comprehensive `.md` research validation briefs with one click.
+   - **Print-to-PDF Formatting:** Specialized `@media print` styling removes navigation controls and optimizes margins and typography for browser PDF generation.
+
+4. **Literature Explorer & Seeding**
+   - Search 250M+ scientific records by topic, keywords, or concepts.
+   - Filter by publication date range and open-access availability.
+   - Copy citations in APA format or "Seed Analysis" directly from any discovered paper.
+
+---
+
+## Tech Stack
+
+- **Framework:** Next.js 16 (App Router)
+- **Language:** TypeScript 5
+- **Styling:** Tailwind CSS v4
+- **Icons:** Lucide Icons
+- **Inference Engine:** Nebius Token Factory (NVIDIA Nemotron)
+- **Academic Index:** OpenAlex REST API
+
+---
 
 ## Getting Started
 
-First, run the development server:
+### 1. Prerequisites
+- Node.js 18.17+ or 20+ installed
+- npm or pnpm package manager
+
+### 2. Installation
+Clone the repository and install dependencies:
+
+```bash
+git clone <repo-url> ideaproof-ai
+cd ideaproof-ai
+npm install
+```
+
+### 3. Environment Configuration
+Copy the example environment file:
+
+```bash
+cp .env.example .env.local
+```
+
+Add your Nebius Token Factory API key to `.env.local`:
+
+```bash
+NEBIUS_API_KEY=your_nebius_api_key_here
+NEBIUS_MODEL=nvidia/nemotron-3-super-120b-a12b
+```
+
+> **Note:** If you run without setting a `NEBIUS_API_KEY`, the application will display pre-validated **Demonstration Benchmark Projects** clearly marked as `DEMO DATA` so you can evaluate the complete user experience immediately. You can also configure a session key through the **Settings** screen.
+
+### 4. Run Development Server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 5. Production Build & Verification
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run build
+npm run start
+```
 
-## Learn More
+---
 
-To learn more about Next.js, take a look at the following resources:
+## Verification & Testing Suite
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- **API Route Validation:** Tests input length (10–2500 chars), sanitization, and level bounds.
+- **Provider Connectivity:** In the **Settings** view, click **Test Nemotron Connection** to verify live communication with the Nebius Token Factory endpoint.
+- **OpenAlex Live Queries:** Verify literature retrieval across domains via `/api/literature`.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+---
 
-## Deploy on Vercel
+## Research Ethics & Integrity
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+All preliminary research gaps generated by the AI model are explicitly watermarked:
+> *Preliminary AI Gap Hypothesis — Subject to systematic empirical verification.*
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+IdeaProof AI is intended to assist academic ideation and preliminary planning; all critical claims should be corroborated against formal literature reviews before thesis defense or grant submission.
