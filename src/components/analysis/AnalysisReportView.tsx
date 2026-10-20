@@ -110,7 +110,7 @@ export function AnalysisReportView({ analysis }: AnalysisReportViewProps) {
               </Badge>
             ) : (
               <Badge variant="verified" className="font-mono text-[10px]">
-                LIVE NEMOTRON ANALYSIS
+                AI VALIDATION REPORT
               </Badge>
             )}
 
@@ -123,7 +123,7 @@ export function AnalysisReportView({ analysis }: AnalysisReportViewProps) {
               {analysis.academicField}
             </Badge>
 
-            <span className="text-[11px] text-[#64748B] ml-auto flex items-center gap-1">
+            <span className="text-[11px] text-[#64748B] ml-auto flex items-center gap-1" suppressHydrationWarning>
               <Calendar className="w-3 h-3 text-[#94A3B8]" />
               {formattedDate}
             </span>

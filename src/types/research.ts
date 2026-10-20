@@ -105,8 +105,12 @@ export interface LiteratureSearchResponse {
 }
 
 export interface ApiStatus {
+  activeProvider: "OpenRouter" | "Nebius Token Factory" | "None";
+  providerConfigured: boolean;
+  model: string;
+  maskedKey: string | null;
+  openRouterConfigured: boolean;
   nebiusConfigured: boolean;
-  nebiusModel: string;
   openAlexStatus: "connected" | "degraded" | "unavailable";
 }
 
@@ -114,7 +118,7 @@ export interface UserPreferences {
   defaultLevel: AcademicLevel;
   primaryField: string;
   citationStyle: "APA" | "IEEE" | "Chicago" | "BibTeX";
+  customApiKey?: string;
   customNebiusApiKey?: string;
   selectedModel?: string;
 }
-

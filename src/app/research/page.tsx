@@ -10,22 +10,25 @@ import { EmptyState } from "@/components/dashboard/EmptyState";
 import { Button } from "@/components/ui/Button";
 import { ResearchAnalysis } from "@/types/research";
 import { deleteProject, getStoredProjects, resetToDemoProjects } from "@/lib/storage";
+import { useIsMounted } from "@/lib/use-mounted";
 
 export default function ResearchListPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [projects, setProjects] = useState<ResearchAnalysis[]>(() => getStoredProjects());
+  const mounted = useIsMounted();
+  const [localProjects, setLocalProjects] = useState<ResearchAnalysis[] | null>(null);
   const [search, setSearch] = useState("");
   const [levelFilter, setLevelFilter] = useState<string>("ALL");
-  const [isLoaded] = useState(true);
+
+  const projects = localProjects ?? (mounted ? getStoredProjects() : []);
 
   const handleDeleteProject = (id: string) => {
     const updated = deleteProject(id);
-    setProjects(updated);
+    setLocalProjects(updated);
   };
 
   const handleLoadDemoData = () => {
     const reloaded = resetToDemoProjects();
-    setProjects(reloaded);
+    setLocalProjects(reloaded);
   };
 
   const filteredProjects = projects.filter((p) => {
@@ -93,7 +96,7 @@ export default function ResearchListPage() {
           </div>
 
           {/* Table */}
-          {isLoaded ? (
+          {mounted ? (
             filteredProjects.length > 0 ? (
               <ProjectTable
                 projects={filteredProjects}

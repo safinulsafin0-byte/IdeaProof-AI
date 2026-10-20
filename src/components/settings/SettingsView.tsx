@@ -21,21 +21,31 @@ import {
   clearAllProjects,
   resetToDemoProjects,
 } from "@/lib/storage";
-import { AcademicLevel, UserPreferences } from "@/types/research";
+import { AcademicLevel } from "@/types/research";
+import { useIsMounted } from "@/lib/use-mounted";
 
 export function SettingsView() {
-  const [prefs, setPrefs] = useState<UserPreferences>(getUserPreferences());
-  const [customKey, setCustomKey] = useState(prefs.customNebiusApiKey || "");
-  const [selectedModel, setSelectedModel] = useState(
-    prefs.selectedModel || "nvidia/nemotron-3-super-120b-a12b"
-  );
-  const [defaultLevel, setDefaultLevel] = useState<AcademicLevel>(prefs.defaultLevel || "Master's");
-  const [primaryField, setPrimaryField] = useState(prefs.primaryField || "Computer Science");
-  const [citationStyle, setCitationStyle] = useState(prefs.citationStyle || "APA");
+  const mounted = useIsMounted();
+  const [savedKey, setSavedKey] = useState<string | null>(null);
+  const [savedModel, setSavedModel] = useState<string | null>(null);
+  const [savedLevel, setSavedLevel] = useState<AcademicLevel | null>(null);
+  const [savedField, setSavedField] = useState<string | null>(null);
+  const [savedStyle, setSavedStyle] = useState<"APA" | "IEEE" | "Chicago" | "BibTeX" | null>(null);
+
+  const storedPrefs = mounted ? getUserPreferences() : null;
+  const customKey = savedKey ?? (storedPrefs?.customApiKey || storedPrefs?.customNebiusApiKey || "");
+  const selectedModel = savedModel ?? (storedPrefs?.selectedModel || "nvidia/nemotron-3-super-120b-a12b");
+  const defaultLevel = savedLevel ?? (storedPrefs?.defaultLevel || "Master's");
+  const primaryField = savedField ?? (storedPrefs?.primaryField || "Computer Science");
+  const citationStyle = savedStyle ?? (storedPrefs?.citationStyle || "APA");
 
   const [serverStatus, setServerStatus] = useState<{
-    nebiusConfigured: boolean;
-    nebiusModel: string;
+    activeProvider?: "OpenRouter" | "Nebius Token Factory" | "None";
+    providerConfigured?: boolean;
+    nebiusConfigured?: boolean;
+    openRouterConfigured?: boolean;
+    nebiusModel?: string;
+    model?: string;
     maskedKey: string | null;
     openAlexStatus: string;
   } | null>(null);
@@ -58,14 +68,19 @@ export function SettingsView() {
 
   const handleSavePreferences = (e: React.FormEvent) => {
     e.preventDefault();
-    const updated = saveUserPreferences({
+    saveUserPreferences({
       customNebiusApiKey: customKey.trim() || undefined,
+      customApiKey: customKey.trim() || undefined,
       selectedModel,
       defaultLevel,
       primaryField,
       citationStyle,
     });
-    setPrefs(updated);
+    setSavedKey(customKey);
+    setSavedModel(selectedModel);
+    setSavedLevel(defaultLevel);
+    setSavedField(primaryField);
+    setSavedStyle(citationStyle);
     setSavedSuccess(true);
     setTimeout(() => setSavedSuccess(false), 2500);
   };
@@ -75,7 +90,7 @@ export function SettingsView() {
     setTestResult(null);
 
     try {
-      const res = await fetch("/api/test-nebius", {
+      const res = await fetch("/api/test-provider", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -131,10 +146,10 @@ export function SettingsView() {
           <div className="flex items-center gap-2">
             <Key className="w-4 h-4 text-[#0F172A]" />
             <h3 className="text-sm font-semibold text-[#0F172A]">
-              1. Nebius Token Factory (NVIDIA Nemotron)
+              1. AI Inference Provider ({serverStatus?.activeProvider === "OpenRouter" ? "OpenRouter" : "Nebius Token Factory"})
             </h3>
           </div>
-          {serverStatus?.nebiusConfigured ? (
+          {serverStatus?.providerConfigured || serverStatus?.nebiusConfigured ? (
             <Badge variant="verified" className="text-[10px] font-mono">
               SERVER ENVIRONMENT CONFIGURED
             </Badge>
@@ -152,53 +167,61 @@ export function SettingsView() {
         {/* Server vs Client Status Note */}
         <div className="p-3 rounded bg-[#FAFAF8] border border-[#E5E5E0] text-xs space-y-1.5">
           <div className="flex items-center justify-between">
-            <span className="font-medium text-[#18181B]">Server Environment Variable:</span>
+            <span className="font-medium text-[#18181B]">Server Active Engine:</span>
             <span className="font-mono text-[11px] text-[#475569]">
-              {serverStatus?.maskedKey || "NEBIUS_API_KEY is not set in process.env"}
+              {serverStatus?.maskedKey
+                ? `${serverStatus.activeProvider || "OpenRouter"}: ${serverStatus.maskedKey}`
+                : "OPENROUTER_API_KEY (or NEBIUS_API_KEY) not set in process.env"}
             </span>
           </div>
           <p className="text-[11px] text-[#64748B]">
-            Secret keys are never exposed to client browsers. You can set <code className="px-1 py-0.5 bg-[#EAEAE6] rounded font-mono">NEBIUS_API_KEY</code> in <code className="px-1 py-0.5 bg-[#EAEAE6] rounded font-mono">.env.local</code> or supply a session key below.
+            Secret keys are never exposed to client browsers. You can set <code className="px-1 py-0.5 bg-[#EAEAE6] rounded font-mono">OPENROUTER_API_KEY</code> or <code className="px-1 py-0.5 bg-[#EAEAE6] rounded font-mono">NEBIUS_API_KEY</code> in your environment, or supply a session key below.
           </p>
         </div>
 
         {/* Key Input */}
         <div>
           <label htmlFor="customKey" className="block text-xs font-semibold text-[#0F172A] mb-1.5">
-            Session Nebius API Key
+            Session API Key (OpenRouter or Nebius)
           </label>
           <input
             id="customKey"
             type="password"
             value={customKey}
-            onChange={(e) => setCustomKey(e.target.value)}
-            placeholder="e.g., neb_..."
+            onChange={(e) => setSavedKey(e.target.value)}
+            placeholder="e.g., sk-or-v1-..."
             className="w-full text-xs font-mono px-3 py-2 rounded bg-white border border-[#E5E5E0] text-[#18181B] focus:outline-none focus:ring-2 focus:ring-[#0F172A]/20 focus:border-[#0F172A] transition-all"
           />
           <p className="mt-1 text-[11px] text-[#64748B]">
-            Stored securely in your local browser storage and used to sign outgoing requests if the server variable is unset.
+            Stored securely in your local browser storage and used to sign outgoing requests if the server environment variable is unset.
           </p>
         </div>
 
         {/* Model Selection */}
         <div>
           <label htmlFor="model" className="block text-xs font-semibold text-[#0F172A] mb-1.5">
-            Target NVIDIA Nemotron Model Identifier
+            Target Model Identifier
           </label>
           <select
             id="model"
             value={selectedModel}
-            onChange={(e) => setSelectedModel(e.target.value)}
+            onChange={(e) => setSavedModel(e.target.value)}
             className="w-full text-xs sm:text-sm px-3 py-2 rounded bg-white border border-[#E5E5E0] text-[#18181B] font-mono focus:outline-none focus:ring-2 focus:ring-[#0F172A]/20 focus:border-[#0F172A] transition-all"
           >
             <option value="nvidia/nemotron-3-super-120b-a12b">
               nvidia/nemotron-3-super-120b-a12b (Default: High Reasoning & Planning)
             </option>
-            <option value="nvidia/Nemotron-3-Ultra-550b-a55b">
-              nvidia/Nemotron-3-Ultra-550b-a55b (Frontier Hybrid MoE)
+            <option value="nvidia/nemotron-3.5-super-vl:free">
+              nvidia/nemotron-3.5-super-vl:free (Free Tier Nemotron)
+            </option>
+            <option value="nvidia/nemotron-3-ultra-550b-a55b">
+              nvidia/nemotron-3-ultra-550b-a55b (Frontier Hybrid MoE)
+            </option>
+            <option value="meta-llama/llama-3.3-70b-instruct">
+              meta-llama/llama-3.3-70b-instruct (Fast Academic Reasoning)
             </option>
             <option value="nvidia/Llama-3.1-Nemotron-70B-Instruct-HF">
-              nvidia/Llama-3.1-Nemotron-70B-Instruct-HF (Aligned Instruct)
+              nvidia/Llama-3.1-Nemotron-70B-Instruct-HF (Legacy Aligned Instruct)
             </option>
           </select>
         </div>
@@ -230,7 +253,7 @@ export function SettingsView() {
             onClick={handleTestConnection}
             icon={<Cpu className="w-3.5 h-3.5" />}
           >
-            Test Nemotron Connection
+            Test AI Connection
           </Button>
         </div>
       </div>
@@ -272,7 +295,7 @@ export function SettingsView() {
             </label>
             <select
               value={defaultLevel}
-              onChange={(e) => setDefaultLevel(e.target.value as AcademicLevel)}
+              onChange={(e) => setSavedLevel(e.target.value as AcademicLevel)}
               className="w-full text-xs px-3 py-2 rounded bg-white border border-[#E5E5E0] text-[#18181B]"
             >
               <option value="Undergraduate">Undergraduate</option>
@@ -288,7 +311,7 @@ export function SettingsView() {
             <input
               type="text"
               value={primaryField}
-              onChange={(e) => setPrimaryField(e.target.value)}
+              onChange={(e) => setSavedField(e.target.value)}
               className="w-full text-xs px-3 py-2 rounded bg-white border border-[#E5E5E0] text-[#18181B]"
             />
           </div>
@@ -299,7 +322,7 @@ export function SettingsView() {
             </label>
             <select
               value={citationStyle}
-              onChange={(e) => setCitationStyle(e.target.value as typeof citationStyle)}
+              onChange={(e) => setSavedStyle(e.target.value as typeof citationStyle)}
               className="w-full text-xs px-3 py-2 rounded bg-white border border-[#E5E5E0] text-[#18181B]"
             >
               <option value="APA">APA 7th Edition</option>

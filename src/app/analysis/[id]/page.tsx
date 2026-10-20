@@ -10,13 +10,17 @@ import { AnalysisReportView } from "@/components/analysis/AnalysisReportView";
 import { Button } from "@/components/ui/Button";
 import { getProjectById } from "@/lib/storage";
 import { DEMO_PROJECTS } from "@/lib/demo-data";
+import { useIsMounted } from "@/lib/use-mounted";
 
 function AnalysisResultContent() {
   const params = useParams();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const mounted = useIsMounted();
 
   const id = typeof params?.id === "string" ? params.id : "";
-  const analysis = getProjectById(id) || DEMO_PROJECTS.find((p) => p.id === id) || null;
+  const analysis = mounted
+    ? getProjectById(id) || DEMO_PROJECTS.find((p) => p.id === id) || null
+    : null;
 
   return (
     <div className="flex min-h-screen bg-[#FAFAF8]">
@@ -27,13 +31,17 @@ function AnalysisResultContent() {
 
       <div className="flex-1 flex flex-col min-w-0">
         <Header
-          title={analysis ? "Analysis Blueprint" : "Research Report"}
-          subtitle={analysis ? `${analysis.academicLevel} • ${analysis.academicField}` : undefined}
+          title={mounted && analysis ? "Analysis Blueprint" : "Research Report"}
+          subtitle={mounted && analysis ? `${analysis.academicLevel} • ${analysis.academicField}` : undefined}
           onOpenMobileMenu={() => setMobileMenuOpen(true)}
         />
 
         <main className="flex-1 p-4 md:p-6 lg:p-8">
-          {analysis ? (
+          {!mounted ? (
+            <div className="max-w-4xl mx-auto p-12 text-center bg-white border border-[#E5E5E0] rounded-lg">
+              <span className="text-xs text-[#64748B]">Loading analysis report...</span>
+            </div>
+          ) : analysis ? (
             <AnalysisReportView analysis={analysis} />
           ) : (
             <div className="max-w-md mx-auto p-8 text-center bg-white border border-[#E5E5E0] rounded-lg shadow-2xs my-12">

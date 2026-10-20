@@ -15,20 +15,23 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { ResearchAnalysis } from "@/types/research";
 import { deleteProject, getStoredProjects, resetToDemoProjects } from "@/lib/storage";
+import { useIsMounted } from "@/lib/use-mounted";
 
 export default function DashboardPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [projects, setProjects] = useState<ResearchAnalysis[]>(() => getStoredProjects());
-  const [isLoaded] = useState(true);
+  const mounted = useIsMounted();
+  const [localProjects, setLocalProjects] = useState<ResearchAnalysis[] | null>(null);
+
+  const projects = localProjects ?? (mounted ? getStoredProjects() : []);
 
   const handleDeleteProject = (id: string) => {
     const updated = deleteProject(id);
-    setProjects(updated);
+    setLocalProjects(updated);
   };
 
   const handleLoadDemoData = () => {
     const reloaded = resetToDemoProjects();
-    setProjects(reloaded);
+    setLocalProjects(reloaded);
   };
 
   return (
@@ -96,11 +99,11 @@ export default function DashboardPage() {
                   Recent Research Projects
                 </h3>
                 <span className="text-[11px] font-mono px-1.5 py-0.2 rounded bg-[#EAEAE6] text-[#64748B]">
-                  {projects.length}
+                  {mounted ? projects.length : "—"}
                 </span>
               </div>
 
-              {projects.length > 0 && (
+              {mounted && projects.length > 0 && (
                 <div className="flex items-center gap-3 text-xs text-[#64748B]">
                   <Link
                     href="/literature"
@@ -114,7 +117,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Project Table or Empty State */}
-            {isLoaded ? (
+            {mounted ? (
               projects.length > 0 ? (
                 <ProjectTable
                   projects={projects}

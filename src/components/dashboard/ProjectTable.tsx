@@ -97,8 +97,8 @@ export function ProjectTable({ projects, onDeleteProject }: ProjectTableProps) {
                     </div>
                   </td>
 
-                  <td className="py-3.5 px-4 hidden sm:table-cell whitespace-nowrap text-[#64748B] text-[11px]">
-                    <span className="flex items-center gap-1.5">
+                  <td className="py-3.5 px-4 hidden sm:table-cell whitespace-nowrap text-[#64748B] text-[11px]" suppressHydrationWarning>
+                    <span className="flex items-center gap-1.5" suppressHydrationWarning>
                       <Calendar className="w-3 h-3 text-[#94A3B8]" />
                       {formattedDate}
                     </span>

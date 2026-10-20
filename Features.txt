@@ -1,0 +1,174 @@
+================================================================================
+IDEAPROOF AI — FEATURE SPECIFICATION & CAPABILITIES
+Academic Research Idea Validation, Methodology Planning & Literature Grounding
+================================================================================
+
+1. PRODUCT OVERVIEW & DESIGN PHILOSOPHY
+--------------------------------------------------------------------------------
+- Purpose: A professional academic SaaS tool designed for researchers, graduate 
+  students, and principal investigators to stress-test research hypotheses, 
+  blueprint experimental methodologies, and ground proposed ideas against real 
+  peer-reviewed literature.
+- Design Aesthetics: Inspired by the restraint, usability, and typography hierarchy 
+  of Linear and Notion. Warm off-white canvas (#FAFAF8), dark charcoal typography 
+  (#0F172A), thin neutral borders (#E5E5E0), subtle shadows, and crisp Lucide icons.
+- Academic Rigor: Emphasizes falsifiability, reproducibility, and transparent 
+  distinction between speculative AI hypotheses and verified scientific evidence.
+
+
+2. AI INFERENCE ENGINE & MODULAR ARCHITECTURE
+--------------------------------------------------------------------------------
+- Active AI Provider: OpenRouter (OpenAI-compatible /chat/completions endpoint at 
+  https://openrouter.ai/api/v1).
+- Swappable Architecture: Modular abstraction layer (src/lib/ai-provider.ts) 
+  allows switching between OpenRouter and Nebius Token Factory 
+  (https://api.tokenfactory.nebius.com/v1) via environment variables without 
+  modifying application or route code.
+- Supported & Tested Models:
+  * nvidia/nemotron-3-super-120b-a12b (Default: High-reasoning Mixture-of-Experts)
+  * nvidia/nemotron-3-ultra-550b-a55b (Frontier MoE for complex multi-hypothesis reasoning)
+  * meta-llama/llama-3.3-70b-instruct (Fast academic instruction-following)
+- Environment Variables:
+  * OPENROUTER_API_KEY: Server-side secret key (never leaked to browser bundles)
+  * OPENROUTER_MODEL: Configurable target model identifier
+  * AI_BASE_URL / OPENROUTER_BASE_URL: Optional custom endpoint override
+  * NEBIUS_API_KEY / NEBIUS_MODEL: Alternative provider configuration
+- Production Error & Exception Handling:
+  * Rate Limits (HTTP 429): Clear warning with backoff advice
+  * Authentication (HTTP 401/403): Guided prompts to configure keys in .env or Settings
+  * Provider Outages / Timeouts (HTTP 502/503/504): Graceful user-facing diagnostics
+  * Input Sanitization: Rejects invalid, empty, or malicious payloads (10-2500 chars)
+
+
+3. STRUCTURED RESEARCH VALIDATION BLUEPRINT
+--------------------------------------------------------------------------------
+Every generated analysis delivers a publication-grade research brief containing:
+- Academic Scope Calibration: Tailors depth and expectations across three tiers:
+  * Undergraduate: Feasible within 1-2 semesters, bounded scope, clear baselines
+  * Master's: Comparative methodology, formal hypothesis validation, standard benchmarks
+  * PhD: Novel theoretical contributions, deep ontology gaps, stress testing
+- Publication-Grade Title: Synthesizes a formal academic title suitable for thesis 
+  or journal submission.
+- Executive Summary: Multi-paragraph synthesis of core thesis, scientific value, 
+  and timeline viability.
+- Scientific Problem Statement: Formal critique of why existing computational or 
+  experimental paradigms fail and the cost of inaction.
+- Primary Research Questions (RQs): Specific, answerable, and falsifiable questions.
+- Directional Hypotheses Pairs:
+  * Null Hypothesis (H0)
+  * Alternative Hypothesis (H1)
+  * Theoretical / Physical Rationale
+- Novelty & Gap Assessment:
+  * Novelty Level Classification (Incremental, Moderate, Substantial, High)
+  * Explicit Preliminary Notice disclaimer (mandating peer review before grant submission)
+  * Concrete differentiation from prior published literature
+- Chronological 3-Phase Execution Methodology:
+  * Phase durations (e.g., Weeks 1-3, Weeks 4-7, Weeks 8-12)
+  * Specific research activities per phase
+  * Concrete deliverables per phase
+- Established Baseline Comparisons: Standard benchmark algorithms, descriptors, or models.
+- Dataset & Resource Specifications:
+  * Required data types and modalities
+  * Recommended open-access repositories and benchmarks (e.g., MoleculeNet, HuggingFace, NCBI)
+  * Sample size and statistical power considerations
+- Quantitative Evaluation Metrics & Statistical Validation:
+  * Primary error and performance metrics (e.g., RMSE, MAE, R², F1, AUROC)
+  * Statistical significance testing requirements (e.g., paired t-tests, permutation tests)
+- Limitations, Threats to Validity & Risk Mitigation:
+  * Methodological confounding variables
+  * Data availability risks
+  * Computational complexity constraints
+
+
+4. VERIFIED ACADEMIC LITERATURE GROUNDING (OPENALEX INTEGRATION)
+--------------------------------------------------------------------------------
+- Live OpenAlex REST API: Directly queries 250M+ cross-disciplinary publications.
+- Zero-Hallucination Guarantee: AI hypothesis generation is strictly separated 
+  from verified empirical literature. The system NEVER invents paper citations, 
+  fake DOIs, or fabricated authors.
+- Authentic Metadata Extraction:
+  * Real, clickable DOI links (https://doi.org/...)
+  * Genuine author rosters and publication years
+  * Authentic journal/conference publication venues
+  * Real citation counts in the global index
+  * Open-access status badge and direct paper URLs
+  * Verified abstract snippets
+
+
+5. INTERACTIVE LITERATURE EXPLORER
+--------------------------------------------------------------------------------
+- Discovery Search: Query the global literature database by topic, keywords, or authors.
+- Suggested Search Presets: 1-click curated searches across cutting-edge fields:
+  * Contrastive learning clinical NER
+  * Physics-informed neural networks Navier-Stokes
+  * Knowledge distillation large language models
+  * Retrieval-augmented generation hallucination
+  * Spatio-temporal graph forecasting
+- Advanced Literature Filtering:
+  * Publication date range filter (From Year / To Year)
+  * Open Access filter (toggle between all papers and freely accessible papers)
+  * Result sorting (Relevance, Most Cited, Publication Date Descending)
+- Instant Citation Generator: Copy formatted APA 7th Edition citations with 1 click.
+- Seed Idea Analysis Workflow: Click "Seed Idea Analysis" on any discovered paper 
+  to immediately pre-populate a new research validation request centered on extending 
+  that publication.
+
+
+6. EXPORT, PRINTING & SHARING CAPABILITIES
+--------------------------------------------------------------------------------
+- Markdown (.md) Export: One-click download of the complete validation brief formatted 
+  with GitHub Flavored Markdown, ready for Notion, Obsidian, or thesis repositories.
+- Print-to-PDF Optimization: Specialized @media print stylesheets strip away sidebars, 
+  headers, and buttons, formatting typography, margins, and section breaks for 
+  flawless browser PDF generation.
+- One-Click Link Sharing: Copy direct project URL to clipboard for peer review.
+
+
+7. WORKSPACE & PROJECT MANAGEMENT
+--------------------------------------------------------------------------------
+- Research Workspace Dashboard:
+  * Unified project table displaying title, discipline, academic level, and update date
+  * Live project count badge
+  * Search filter and academic level dropdown filter
+  * Delete project confirmation and cleanup
+  * Quick-action buttons to launch new analysis or explore literature
+- Demo Benchmark Projects:
+  * Pre-loaded with validated demonstration benchmarks (e.g., Contrastive Clinical NER, 
+    Physics-Informed Graph Neural Networks)
+  * Clearly labeled with "DEMO DATA" badges to distinguish from live runs
+  * Allows hackathon judges to explore full functionality without entering an API key
+  * Instant "Load Demo Data" restoration button in empty states and settings
+
+
+8. USER PREFERENCES & SETTINGS
+--------------------------------------------------------------------------------
+- Live Server Status Dashboard:
+  * Active AI provider detection (OpenRouter vs. Nebius)
+  * Masked API key display (e.g., sk-or-v1••••••••b6f5) — raw keys are never shown
+  * Active model identifier
+  * OpenAlex index connectivity health indicator
+- Live Provider Diagnostic:
+  * "Test AI Connection" button performs a real-time handshake with the active API
+- Session API Key Override:
+  * Users can input a personal OpenRouter or Nebius API key stored in local browser storage
+- Default Academic Preferences:
+  * Default academic level (Undergraduate, Master's, PhD)
+  * Primary research field (e.g., Computer Science, Bioengineering, Physics)
+  * Citation formatting style preference (APA 7th, IEEE, Chicago, BibTeX)
+- Workspace Management:
+  * Clear all local workspace projects (for testing empty states)
+  * Restore pre-validated demonstration benchmarks at any time
+
+
+9. TECHNICAL STACK & RELIABILITY
+--------------------------------------------------------------------------------
+- Framework: Next.js 16 (App Router) with React 19 Turbopack
+- Language: TypeScript 5 with strict mode type safety
+- Styling: Tailwind CSS v4
+- Icons: Lucide React
+- Hydration Safety: Custom useIsMounted hook powered by useSyncExternalStore 
+  guarantees 100% byte-for-byte SSR and client hydration consistency
+- Responsive Layout: Fully adapted for mobile, tablet, and 1440px+ desktop viewports
+- Zero Console Warnings: Clean ESLint checks and production builds without errors
+================================================================================
+

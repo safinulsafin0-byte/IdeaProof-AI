@@ -14,6 +14,7 @@ import { AcademicLevel, ResearchAnalysis } from "@/types/research";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { getUserPreferences, saveProject } from "@/lib/storage";
+import { useIsMounted } from "@/lib/use-mounted";
 
 const EXAMPLE_PROMPTS: {
   title: string;
@@ -76,7 +77,7 @@ const LEVEL_DESCRIPTIONS: Record<AcademicLevel, string> = {
 export function NewAnalysisForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const prefs = getUserPreferences();
+  const mounted = useIsMounted();
 
   const seedTopic = searchParams.get("seedTopic") || "";
   const seedRef = searchParams.get("seedRef") || "";
@@ -85,8 +86,11 @@ export function NewAnalysisForm() {
   const [researchQuestion, setResearchQuestion] = useState(
     seedRef ? `Investigating empirical boundaries and extensions of: ${seedRef}` : ""
   );
-  const [academicField, setAcademicField] = useState(prefs.primaryField || "Computer Science");
-  const [academicLevel, setAcademicLevel] = useState<AcademicLevel>(prefs.defaultLevel || "Master's");
+  const [customField, setCustomField] = useState<string | null>(null);
+  const [customLevel, setCustomLevel] = useState<AcademicLevel | null>(null);
+
+  const academicField = customField ?? (mounted ? getUserPreferences().primaryField || "Computer Science" : "Computer Science");
+  const academicLevel = customLevel ?? (mounted ? getUserPreferences().defaultLevel || "Master's" : "Master's");
 
   const [isLoading, setIsLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState<string>("");
@@ -96,8 +100,8 @@ export function NewAnalysisForm() {
   const handleApplyExample = (ex: (typeof EXAMPLE_PROMPTS)[0]) => {
     setTopic(ex.topic);
     setResearchQuestion(ex.question);
-    setAcademicField(ex.field);
-    setAcademicLevel(ex.level);
+    setCustomField(ex.field);
+    setCustomLevel(ex.level);
     setErrorMessage(null);
   };
 
@@ -114,15 +118,19 @@ export function NewAnalysisForm() {
     setLoadingStep("Connecting to NVIDIA Nemotron inference engine...");
 
     try {
+      const prefs = getUserPreferences();
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
       };
 
       // Check if user set a custom key in their client preferences
-      if (prefs.customNebiusApiKey) {
-        headers["x-nebius-api-key"] = prefs.customNebiusApiKey;
+      const sessionKey = prefs.customApiKey || prefs.customNebiusApiKey;
+      if (sessionKey) {
+        headers["x-openrouter-api-key"] = sessionKey;
+        headers["x-nebius-api-key"] = sessionKey;
       }
       if (prefs.selectedModel) {
+        headers["x-openrouter-model"] = prefs.selectedModel;
         headers["x-nebius-model"] = prefs.selectedModel;
       }
 
@@ -141,14 +149,31 @@ export function NewAnalysisForm() {
 
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
-        if (res.status === 401 || (errorData.error && errorData.error.includes("NEBIUS_API_KEY"))) {
+        const rawErr = errorData.error || "";
+
+        if (res.status === 401 || res.status === 403 || rawErr.toLowerCase().includes("api_key") || rawErr.toLowerCase().includes("auth")) {
           setMissingKeyWarning(true);
           throw new Error(
-            errorData.error ||
-              "Nebius API key is not configured. Add your NEBIUS_API_KEY to .env.local or Settings to execute live Nemotron inference."
+            rawErr ||
+              "Authentication failed: AI Provider API key is missing or invalid. Please check OPENROUTER_API_KEY in .env.local or your Settings."
           );
         }
-        throw new Error(errorData.error || `Server responded with HTTP ${res.status}`);
+
+        if (res.status === 429 || rawErr.toLowerCase().includes("rate limit")) {
+          throw new Error(
+            rawErr ||
+              "Rate limit reached (HTTP 429). The model provider is currently experiencing high load. Please wait a brief moment and try again."
+          );
+        }
+
+        if (res.status >= 500) {
+          throw new Error(
+            rawErr ||
+              `AI provider service error (HTTP ${res.status}): The model service was unable to complete the request. Please verify connectivity in Settings.`
+          );
+        }
+
+        throw new Error(rawErr || `Server responded with HTTP ${res.status}`);
       }
 
       setLoadingStep("Querying OpenAlex index for verified literature...");
@@ -277,7 +302,7 @@ export function NewAnalysisForm() {
             <select
               id="field"
               value={academicField}
-              onChange={(e) => setAcademicField(e.target.value)}
+              onChange={(e) => setCustomField(e.target.value)}
               className="w-full text-xs sm:text-sm px-3 py-2 rounded bg-white border border-[#E5E5E0] text-[#18181B] focus:outline-none focus:ring-2 focus:ring-[#0F172A]/20 focus:border-[#0F172A] transition-all"
             >
               {ACADEMIC_FIELDS.map((f) => (
@@ -297,7 +322,7 @@ export function NewAnalysisForm() {
                 <button
                   key={level}
                   type="button"
-                  onClick={() => setAcademicLevel(level)}
+                  onClick={() => setCustomLevel(level)}
                   className={`px-2.5 py-1.5 rounded text-xs font-medium border text-center transition-all ${
                     academicLevel === level
                       ? "bg-[#0F172A] text-white border-[#0F172A] shadow-xs"

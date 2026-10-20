@@ -13,24 +13,30 @@
 # testing
 /coverage
 
-# next.js
+# next.js build outputs
 /.next/
 /out/
-
-# production
 /build
+/dist
 
 # misc
 .DS_Store
 *.pem
 
-# debug
+# debug and runtime logs
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# environment variables & local secrets
+.env
+.env*.local
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 .env*
 !.env.example
 

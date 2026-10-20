@@ -34,9 +34,6 @@ export function Header({
             <h1 className="text-sm font-semibold tracking-tight text-[#0F172A] truncate">
               {title}
             </h1>
-            <span className="hidden sm:inline-block px-1.5 py-0.2 rounded text-[10px] font-mono uppercase bg-slate-100 text-slate-600 border border-slate-200">
-              v1.0
-            </span>
           </div>
           {subtitle && (
             <p className="hidden text-xs text-[#64748B] sm:block truncate">

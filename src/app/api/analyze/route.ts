@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { analyzeResearchIdeaWithNemotron, NebiusApiError } from "@/lib/nebius";
+import { analyzeResearchIdea, AIProviderError } from "@/lib/ai-provider";
 import { searchOpenAlex } from "@/lib/openalex";
-import { AcademicLevel, ResearchAnalysis, ResearchIdeaInput } from "@/types/research";
+import { AcademicLevel, ResearchAnalysis, ResearchIdeaInput, VerifiedPaper } from "@/types/research";
 
 export async function POST(req: NextRequest) {
   try {
@@ -33,18 +33,26 @@ export async function POST(req: NextRequest) {
       academicLevel: level,
     };
 
-    // Check for optional custom API key passed in request header from client Settings
-    const customApiKey = req.headers.get("x-nebius-api-key") || undefined;
-    const customModel = req.headers.get("x-nebius-model") || undefined;
+    // Support optional custom session headers from client settings
+    const customApiKey =
+      req.headers.get("x-openrouter-api-key") ||
+      req.headers.get("x-ai-api-key") ||
+      req.headers.get("x-nebius-api-key") ||
+      undefined;
 
-    // 2. Execute Structured Analysis via NVIDIA Nemotron
-    const analysisBlueprint = await analyzeResearchIdeaWithNemotron(input, {
+    const customModel =
+      req.headers.get("x-openrouter-model") ||
+      req.headers.get("x-ai-model") ||
+      req.headers.get("x-nebius-model") ||
+      undefined;
+
+    // 2. Execute Structured Analysis via active AI provider (OpenRouter / Nemotron)
+    const analysisBlueprint = await analyzeResearchIdea(input, {
       apiKey: customApiKey,
       model: customModel,
     });
 
-    // 3. Extract key terms and query OpenAlex for verified literature
-    // Use academic field + core topic keywords
+    // 3. Extract key terms and query OpenAlex for verified empirical literature
     let searchQuery = input.topic
       .replace(/[^\w\s]/gi, " ")
       .split(/\s+/)
@@ -56,7 +64,7 @@ export async function POST(req: NextRequest) {
       searchQuery = `${input.academicField} ${searchQuery}`;
     }
 
-    let verifiedLiterature: import("@/types/research").VerifiedPaper[] = [];
+    let verifiedLiterature: VerifiedPaper[] = [];
     try {
       const literatureResponse = await searchOpenAlex({
         query: searchQuery || input.topic.slice(0, 60),
@@ -66,7 +74,7 @@ export async function POST(req: NextRequest) {
       verifiedLiterature = literatureResponse.papers;
     } catch (litErr) {
       console.warn("OpenAlex retrieval warning:", litErr);
-      // Fallback: We do not invent fake papers. Leave literature array empty or partial if service is down
+      // Strictly do not fabricate missing literature; leave list empty or partial
       verifiedLiterature = [];
     }
 
@@ -81,7 +89,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(completeAnalysis);
   } catch (err: unknown) {
-    if (err instanceof NebiusApiError) {
+    if (err instanceof AIProviderError) {
       return NextResponse.json(
         {
           error: err.message,
