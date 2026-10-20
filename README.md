@@ -1,3 +1,22 @@
+## AI Provider
+
+IdeaProof AI uses an NVIDIA Nemotron model (`nvidia/nemotron-3.5-super-vl`) through the OpenRouter OpenAI-compatible API.
+
+### Why not Nebius Token Factory?
+Nebius Token Factory was not accessible from Bangladesh during development:
+- Bangladesh is not listed in the "Country of residence" field in Token Factory billing.
+- A credit card was required to activate API access, which I do not have.
+- I reached out to the hackathon organizers and the Nebius community on Discord on 19 October 2026 and did not receive a way to proceed in time.
+
+### Switching to Nebius
+The provider layer is OpenAI-compatible. Moving to Nebius Token Factory requires changing only three environment variables:
+
+AI_BASE_URL=<Nebius Token Factory base URL>
+AI_API_KEY=<Nebius API key>
+AI_MODEL=<Nebius NVIDIA Nemotron model ID>
+
+No application code changes are needed.
+
 # IdeaProof AI
 
 **Academic Research Idea Validation & Planning Platform**
