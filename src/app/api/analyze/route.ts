@@ -3,6 +3,8 @@ import { analyzeResearchIdea, AIProviderError } from "@/lib/ai-provider";
 import { searchOpenAlex } from "@/lib/openalex";
 import { AcademicLevel, ResearchAnalysis, ResearchIdeaInput, VerifiedPaper } from "@/types/research";
 
+export const maxDuration = 60;
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();

@@ -9,6 +9,7 @@ import {
   Lightbulb,
   Info,
   BookOpen,
+  RotateCw,
 } from "lucide-react";
 import { AcademicLevel, ResearchAnalysis } from "@/types/research";
 import { Button } from "@/components/ui/Button";
@@ -375,6 +376,18 @@ export function NewAnalysisForm() {
                     View Sample Demonstration Analysis
                   </Link>
                 </div>
+              </div>
+            )}
+            {!isLoading && (
+              <div className="pl-6 pt-1 flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleSubmit}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-white hover:bg-red-100/70 border border-red-300 text-red-900 font-medium text-xs transition-colors shadow-xs"
+                >
+                  <RotateCw className="w-3.5 h-3.5 text-red-700" />
+                  Retry Analysis
+                </button>
               </div>
             )}
           </div>

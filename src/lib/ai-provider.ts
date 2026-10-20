@@ -281,124 +281,107 @@ function validateAndNormalizeAnalysis(
 }
 
 /**
- * Executes structured research analysis via the active AI provider (OpenRouter by default, easily swappable with Nebius).
+ * Strips markdown code fences (```json or ```) and any extraneous text outside
+ * the outermost JSON object braces { ... }.
  */
-export async function analyzeResearchIdea(
-  input: ResearchIdeaInput,
-  options?: { apiKey?: string; model?: string }
-): Promise<Omit<ResearchAnalysis, "id" | "createdAt" | "verifiedLiterature">> {
-  const config = getResolvedAIConfig(options?.apiKey, options?.model);
+export function extractAndCleanJson(rawContent: string): string {
+  if (!rawContent || typeof rawContent !== "string") return "";
+  let text = rawContent.trim();
 
-  if (!config.apiKey) {
-    throw new AIProviderError(
-      `${config.providerName} API key is not configured. Please set ${
-        config.providerName === "OpenRouter" ? "OPENROUTER_API_KEY" : "NEBIUS_API_KEY"
-      } in server environment variables or provide a key in Settings.`,
-      401,
-      config.providerName
-    );
+  // Strip leading and trailing markdown code fences
+  text = text.replace(/^```(?:json)?\s*/i, "");
+  text = text.replace(/\s*```$/i, "");
+  text = text.trim();
+
+  // Extract from outermost '{' to last '}'
+  const firstBrace = text.indexOf("{");
+  const lastBrace = text.lastIndexOf("}");
+
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace >= firstBrace) {
+    return text.substring(firstBrace, lastBrace + 1).trim();
   }
 
-  const systemPrompt = `You are an elite academic peer-review committee chair and research methodology director.
-Your role is to rigorously deconstruct, critique, and provide a structured research design blueprint for a proposed academic research idea.
-The target academic level is: ${input.academicLevel}.
-Discipline: ${input.academicField || "General Scientific Domain"}.
+  return text;
+}
 
-Requirements:
-- Emphasize methodological rigor, falsifiability, and clear distinction between hypothesis and established knowledge.
-- The novelty gap MUST be explicitly noted as a preliminary hypothesis subject to verification against literature.
-- DO NOT hallucinate paper citations in your text; return ONLY the structured methodological and design guidance.
-- You MUST respond with ONLY a valid, parseable JSON object matching this schema without any preamble, conversation, or markdown explanation:
+interface ProviderCompletionResult {
+  content: string;
+  finishReason: string | null;
+}
 
-{
-  "title": "A publication-grade academic title for this project",
-  "executiveSummary": "2-3 paragraphs synthesizing the core thesis, scientific value, and viability at the ${input.academicLevel} level.",
-  "problemStatement": "Rigorous definition of the scientific problem, why current paradigms fail, and the cost of inaction.",
-  "researchQuestions": [
-    "Specific, answerable, and falsifiable question 1",
-    "Specific, answerable, and falsifiable question 2",
-    "Specific, answerable, and falsifiable question 3"
-  ],
-  "hypotheses": [
-    {
-      "id": "h1",
-      "h0": "Formal null hypothesis stating no effect or no difference",
-      "h1": "Directional alternative hypothesis stating expected relationship",
-      "rationale": "Theoretical grounding justifying the expected effect"
-    }
-  ],
-  "potentialNoveltyAndGap": {
-    "gapDescription": "Explicit synthesis of the theoretical or experimental gap in current knowledge",
-    "noveltyAssessment": "Incremental" | "Moderate" | "Substantial" | "High",
-    "differentiationFromPriorWork": "Direct comparison with current leading baselines"
-  },
-  "suggestedMethodology": {
-    "framework": "High-level theoretical or experimental paradigm",
-    "phases": [
-      {
-        "phaseNumber": 1,
-        "title": "Phase title",
-        "durationWeeks": "Weeks 1–4",
-        "activities": ["Activity 1", "Activity 2"],
-        "deliverables": ["Deliverable 1", "Deliverable 2"]
-      }
-    ],
-    "baselineMethods": ["Baseline 1", "Baseline 2"]
-  },
-  "datasetRequirements": {
-    "requiredDataTypes": ["Data type 1", "Data type 2"],
-    "recommendedSources": ["Public repository or source 1", "Source 2"],
-    "sampleSizeConsiderations": "Power analysis guidance and sample volume requirements"
-  },
-  "evaluationMetrics": {
-    "quantitativeMetrics": ["Metric 1", "Metric 2"],
-    "qualitativeCriteria": ["Criterion 1", "Criterion 2"],
-    "benchmarkDatasets": ["Benchmark 1", "Benchmark 2"]
-  },
-  "limitationsAndRisks": {
-    "feasibilityRisks": ["Risk 1", "Risk 2"],
-    "methodologicalRisks": ["Risk 1", "Risk 2"],
-    "ethicalConsiderations": ["Ethical note 1", "Ethical note 2"]
-  }
-}`;
-
-  const userPrompt = `RESEARCH PROPOSAL DETAILS:
-Topic / Problem Statement: ${input.topic}
-${input.researchQuestion ? `Initial Research Question: ${input.researchQuestion}` : ""}
-${input.academicField ? `Discipline: ${input.academicField}` : ""}
-Target Academic Level: ${input.academicLevel}
-
-Generate the comprehensive research validation blueprint in pure JSON format now.`;
-
+/**
+ * Dispatches a chat completion request to the provider with optional JSON object format
+ * and graceful fallback if the provider rejects the response_format parameter.
+ */
+async function requestChatCompletion(
+  config: AIProviderConfig,
+  messages: Array<{ role: string; content: string }>,
+  maxTokens: number,
+  timeoutMs: number,
+  tryJsonFormat: boolean
+): Promise<ProviderCompletionResult> {
   const endpoint = `${config.baseUrl}/chat/completions`;
-  const controller = new AbortController();
-  const timeoutMs = 50000; // 50 seconds timeout
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  const executeFetch = async (useJsonFormat: boolean): Promise<Response> => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    const payload: Record<string, unknown> = {
+      model: config.model,
+      messages,
+      temperature: 0.2,
+      max_tokens: maxTokens,
+    };
+
+    if (useJsonFormat) {
+      payload.response_format = { type: "json_object" };
+    }
+
+    try {
+      return await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${config.apiKey}`,
+          Accept: "application/json",
+          "HTTP-Referer": "https://ideaproof.ai",
+          "X-Title": "IdeaProof AI",
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  };
 
   let response: Response;
   try {
-    response = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${config.apiKey}`,
-        Accept: "application/json",
-        "HTTP-Referer": "https://ideaproof.ai",
-        "X-Title": "IdeaProof AI",
-      },
-      body: JSON.stringify({
-        model: config.model,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        temperature: 0.2,
-        max_tokens: 3500,
-      }),
-      signal: controller.signal,
-    });
+    response = await executeFetch(tryJsonFormat);
+
+    // Fallback gracefully if provider rejects response_format
+    if (!response.ok && tryJsonFormat && response.status === 400) {
+      let errText = "";
+      try {
+        errText = await response.clone().text();
+      } catch {
+        errText = "";
+      }
+
+      const lowerErr = errText.toLowerCase();
+      if (
+        lowerErr.includes("response_format") ||
+        lowerErr.includes("json_object") ||
+        lowerErr.includes("unsupported") ||
+        lowerErr.includes("schema")
+      ) {
+        console.warn(
+          `[AI Provider] ${config.providerName} rejected response_format: { type: "json_object" }. Retrying standard request...`
+        );
+        response = await executeFetch(false);
+      }
+    }
   } catch (err: unknown) {
-    clearTimeout(timeoutId);
     if (err instanceof Error && err.name === "AbortError") {
       throw new AIProviderError(
         `${config.providerName} request timed out after ${timeoutMs / 1000} seconds. Please retry shortly.`,
@@ -413,8 +396,6 @@ Generate the comprehensive research validation blueprint in pure JSON format now
       502,
       config.providerName
     );
-  } finally {
-    clearTimeout(timeoutId);
   }
 
   if (!response.ok) {
@@ -448,44 +429,223 @@ Generate the comprehensive research validation blueprint in pure JSON format now
   }
 
   const responseJson = await response.json();
-  const rawMessage = responseJson.choices?.[0]?.message;
-  const content = rawMessage?.content || rawMessage?.text;
+  const choice = responseJson.choices?.[0];
+  const rawMessage = choice?.message;
+  const content = rawMessage?.content || rawMessage?.text || "";
+  const finishReason = (choice?.finish_reason as string) || null;
 
-  if (!content || typeof content !== "string") {
+  return {
+    content,
+    finishReason,
+  };
+}
+
+/**
+ * Executes structured research analysis via the active AI provider (OpenRouter by default, easily swappable with Nebius).
+ */
+export async function analyzeResearchIdea(
+  input: ResearchIdeaInput,
+  options?: { apiKey?: string; model?: string }
+): Promise<Omit<ResearchAnalysis, "id" | "createdAt" | "verifiedLiterature">> {
+  const config = getResolvedAIConfig(options?.apiKey, options?.model);
+
+  if (!config.apiKey) {
     throw new AIProviderError(
-      `${config.providerName} returned an empty completion content.`,
-      502,
+      `${config.providerName} API key is not configured. Please set ${
+        config.providerName === "OpenRouter" ? "OPENROUTER_API_KEY" : "NEBIUS_API_KEY"
+      } in server environment variables or provide a key in Settings.`,
+      401,
       config.providerName
     );
   }
 
-  // Parse JSON from content (stripping markdown fences if present)
-  let parsedJson: Record<string, unknown>;
+  const systemPrompt = `You are an elite academic peer-review committee chair and research methodology director.
+Your role is to rigorously deconstruct, critique, and provide a structured research design blueprint for a proposed academic research idea.
+The target academic level is: ${input.academicLevel}.
+Discipline: ${input.academicField || "General Scientific Domain"}.
+
+STRICT CONCISENESS & SCHEMA RULES:
+- Output ONLY a valid, parseable JSON object matching the exact schema below.
+- Keep output concise to prevent truncation:
+  * Each prose field (executiveSummary, problemStatement, gapDescription, differentiationFromPriorWork, framework, sampleSizeConsiderations) must be AT MOST 2-3 concise sentences.
+  * All lists/arrays must contain AT MOST 3-4 high-value items.
+  * The "hypotheses" array must contain AT MOST 2 hypothesis pairs.
+  * The "phases" array must contain AT MOST 3 phases, with at most 2 activities and 2 deliverables each.
+- Ensure every string is properly closed and the entire JSON object terminates with valid closing braces.
+- DO NOT fabricate citations, DOIs, or papers in your text.
+- Do NOT include any introductory or concluding text, explanations, or conversational markdown outside the JSON.
+
+SCHEMA:
+{
+  "title": "A publication-grade academic title (1 sentence)",
+  "executiveSummary": "Concise summary synthesizing core thesis, scientific value, and viability (at most 2-3 sentences).",
+  "problemStatement": "Rigorous definition of why current paradigms fail and the research problem (at most 2-3 sentences).",
+  "researchQuestions": [
+    "Specific, answerable question 1",
+    "Specific, answerable question 2",
+    "Specific, answerable question 3"
+  ],
+  "hypotheses": [
+    {
+      "id": "h1",
+      "h0": "Formal null hypothesis (1 sentence)",
+      "h1": "Directional alternative hypothesis (1 sentence)",
+      "rationale": "Theoretical grounding (1-2 sentences)"
+    }
+  ],
+  "potentialNoveltyAndGap": {
+    "gapDescription": "Explicit synthesis of the theoretical or experimental gap in current knowledge (at most 2-3 sentences)",
+    "noveltyAssessment": "Incremental" | "Moderate" | "Substantial" | "High",
+    "differentiationFromPriorWork": "Direct comparison with current leading baselines (at most 2-3 sentences)"
+  },
+  "suggestedMethodology": {
+    "framework": "High-level theoretical or experimental paradigm (at most 2-3 sentences)",
+    "phases": [
+      {
+        "phaseNumber": 1,
+        "title": "Phase title",
+        "durationWeeks": "Weeks 1–4",
+        "activities": ["Activity 1", "Activity 2"],
+        "deliverables": ["Deliverable 1", "Deliverable 2"]
+      }
+    ],
+    "baselineMethods": ["Baseline method 1", "Baseline method 2", "Baseline method 3"]
+  },
+  "datasetRequirements": {
+    "requiredDataTypes": ["Data type 1", "Data type 2", "Data type 3"],
+    "recommendedSources": ["Public repository or source 1", "Source 2", "Source 3"],
+    "sampleSizeConsiderations": "Power analysis guidance and sample volume requirements (at most 2 sentences)"
+  },
+  "evaluationMetrics": {
+    "quantitativeMetrics": ["Metric 1", "Metric 2", "Metric 3"],
+    "qualitativeCriteria": ["Criterion 1", "Criterion 2"],
+    "benchmarkDatasets": ["Benchmark 1", "Benchmark 2"]
+  },
+  "limitationsAndRisks": {
+    "feasibilityRisks": ["Risk 1", "Risk 2"],
+    "methodologicalRisks": ["Risk 1", "Risk 2"],
+    "ethicalConsiderations": ["Ethical note 1", "Ethical note 2"]
+  }
+}`;
+
+  const userPrompt = `RESEARCH PROPOSAL DETAILS:
+Topic / Problem Statement: ${input.topic}
+${input.researchQuestion ? `Initial Research Question: ${input.researchQuestion}` : ""}
+${input.academicField ? `Discipline: ${input.academicField}` : ""}
+Target Academic Level: ${input.academicLevel}
+
+Generate the comprehensive research validation blueprint in pure JSON format now. Remember: concise fields (2-3 sentences maximum) and lists of at most 3-4 items.`;
+
+  const perAttemptTimeoutMs = 27000; // 27 seconds per attempt
+  let parsedJson: Record<string, unknown> | null = null;
+  let attempt1Truncated = false;
+  let attempt1ParseError = "";
+
+  // ATTEMPT 1: Primary structured generation (max_tokens: 7500)
   try {
-    const cleaned = content.replace(/^```json\s*/i, "").replace(/```\s*$/i, "").trim();
-    parsedJson = JSON.parse(cleaned);
-  } catch (parseErr) {
-    const firstBrace = content.indexOf("{");
-    const lastBrace = content.lastIndexOf("}");
-    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    const result1 = await requestChatCompletion(
+      config,
+      [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      7500,
+      perAttemptTimeoutMs,
+      true
+    );
+
+    if (result1.finishReason === "length") {
+      attempt1Truncated = true;
+    } else if (!result1.content.trim()) {
+      attempt1ParseError = "Empty completion content";
+    } else {
+      const cleaned = extractAndCleanJson(result1.content);
       try {
-        parsedJson = JSON.parse(content.substring(firstBrace, lastBrace + 1));
-      } catch {
+        parsedJson = JSON.parse(cleaned);
+      } catch (parseErr) {
+        attempt1ParseError = parseErr instanceof Error ? parseErr.message : "JSON syntax error";
+      }
+    }
+  } catch (err: unknown) {
+    if (err instanceof AIProviderError && (err.statusCode === 401 || err.statusCode === 403 || err.statusCode === 429)) {
+      throw err;
+    }
+    attempt1ParseError = err instanceof Error ? err.message : String(err);
+  }
+
+  // ATTEMPT 2: Automatic retry if truncated or JSON parse failed
+  if (!parsedJson) {
+    console.warn(
+      `[AI Provider] Attempt 1 failed (${attempt1Truncated ? "Truncated output" : attempt1ParseError}). Retrying with stricter brevity instruction...`
+    );
+
+    const retrySystemPrompt = `${systemPrompt}
+
+CRITICAL RETRY INSTRUCTION:
+The previous attempt failed due to output truncation or incomplete JSON syntax. You MUST keep your output ultra-concise:
+- Each prose field must be AT MOST 1-2 brief sentences.
+- Lists/arrays must contain AT MOST 2-3 items.
+- Ensure all quotes and brackets close properly to output 100% valid, complete JSON.`;
+
+    try {
+      const result2 = await requestChatCompletion(
+        config,
+        [
+          { role: "system", content: retrySystemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        8000,
+        perAttemptTimeoutMs,
+        true
+      );
+
+      // Check finish_reason
+      if (result2.finishReason === "length") {
         throw new AIProviderError(
-          `Unable to parse structured JSON from ${config.providerName} model output: ${
-            parseErr instanceof Error ? parseErr.message : "Invalid JSON"
-          }`,
+          `The ${config.providerName} model response was truncated due to output length limits. Please click "Retry Analysis" or try a more specific topic.`,
           502,
           config.providerName
         );
       }
-    } else {
+
+      if (!result2.content.trim()) {
+        throw new AIProviderError(
+          `${config.providerName} returned an empty completion. Please click "Retry Analysis".`,
+          502,
+          config.providerName
+        );
+      }
+
+      const cleaned2 = extractAndCleanJson(result2.content);
+      try {
+        parsedJson = JSON.parse(cleaned2);
+      } catch (parseErr: unknown) {
+        throw new AIProviderError(
+          `Unable to parse structured JSON from ${config.providerName} model output: ${
+            parseErr instanceof Error ? parseErr.message : "Incomplete JSON"
+          }. The model output was incomplete or malformed. Please click "Retry Analysis" to generate again.`,
+          502,
+          config.providerName
+        );
+      }
+    } catch (retryErr: unknown) {
+      if (retryErr instanceof AIProviderError) {
+        throw retryErr;
+      }
       throw new AIProviderError(
-        `${config.providerName} model output did not contain a valid JSON object structure.`,
+        `Analysis generation failed: ${retryErr instanceof Error ? retryErr.message : "Inference error"}. Please retry.`,
         502,
         config.providerName
       );
     }
+  }
+
+  if (!parsedJson) {
+    throw new AIProviderError(
+      `Failed to generate structured research analysis from ${config.providerName}. Please try again.`,
+      502,
+      config.providerName
+    );
   }
 
   return validateAndNormalizeAnalysis(parsedJson, input, config.model);
