@@ -358,7 +358,7 @@ export function NewAnalysisForm() {
             {missingKeyWarning && (
               <div className="pl-6 pt-1 text-[11px] text-red-800 space-y-1">
                 <p>
-                  To run live inference with NVIDIA Nemotron, configure <code className="px-1 py-0.5 bg-red-100 rounded font-mono">NEBIUS_API_KEY</code> in your <code className="px-1 py-0.5 bg-red-100 rounded font-mono">.env.local</code> file or input it in the Settings page.
+                  To run live inference with NVIDIA Nemotron, configure <code className="px-1 py-0.5 bg-red-100 rounded font-mono">OPENROUTER_API_KEY</code> in your <code className="px-1 py-0.5 bg-red-100 rounded font-mono">.env.local</code> file or input it in the Settings page.
                 </p>
                 <div className="pt-2 flex items-center gap-3">
                   <Link

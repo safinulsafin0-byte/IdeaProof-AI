@@ -171,11 +171,11 @@ export function SettingsView() {
             <span className="font-mono text-[11px] text-[#475569]">
               {serverStatus?.maskedKey
                 ? `${serverStatus.activeProvider || "OpenRouter"}: ${serverStatus.maskedKey}`
-                : "OPENROUTER_API_KEY (or NEBIUS_API_KEY) not set in process.env"}
+                : "OPENROUTER_API_KEY not set in process.env"}
             </span>
           </div>
           <p className="text-[11px] text-[#64748B]">
-            Secret keys are never exposed to client browsers. You can set <code className="px-1 py-0.5 bg-[#EAEAE6] rounded font-mono">OPENROUTER_API_KEY</code> or <code className="px-1 py-0.5 bg-[#EAEAE6] rounded font-mono">NEBIUS_API_KEY</code> in your environment, or supply a session key below.
+            Secret keys are never exposed to client browsers. You can set <code className="px-1 py-0.5 bg-[#EAEAE6] rounded font-mono">OPENROUTER_API_KEY</code> in your environment, or supply a session key below.
           </p>
         </div>
 
